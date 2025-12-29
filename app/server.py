@@ -11,6 +11,11 @@ app = Flask(__name__)
 app.config["UPLOAD_FOLDER"] = UPLOAD_FOLDER
 app.config["OUTPUT_FOLDER"] = OUTPUT_FOLDER
 
+# ⭐ IMPORTANT ⭐
+# Create folders on startup (Render does not auto-create)
+os.makedirs(app.config["UPLOAD_FOLDER"], exist_ok=True)
+os.makedirs(app.config["OUTPUT_FOLDER"], exist_ok=True)
+
 
 @app.route("/health", methods=["GET"])
 def health():
@@ -38,7 +43,7 @@ def convert_pdf():
             return jsonify({"error": "Invalid file type"}), 400
 
         filename = secure_filename(f.filename)
-        path = os.path.join(UPLOAD_FOLDER, filename)
+        path = os.path.join(app.config["UPLOAD_FOLDER"], filename)
 
         f.save(path)
         upload_paths.append(path)
@@ -49,12 +54,17 @@ def convert_pdf():
         cleanup(upload_paths)
         return jsonify({"error": "Files too large"}), 400
 
-    pdf_bytes = build_pdf(upload_paths, watermark_text=watermark, quality=quality)
+    pdf_bytes = build_pdf(upload_paths,
+                          watermark_text=watermark,
+                          quality=quality)
 
     if password:
         pdf_bytes = apply_password(pdf_bytes, password)
 
-    output_path = os.path.join(OUTPUT_FOLDER, f"output_{int(time.time())}.pdf")
+    output_path = os.path.join(
+        app.config["OUTPUT_FOLDER"],
+        f"output_{int(time.time())}.pdf"
+    )
 
     with open(output_path, "wb") as f:
         f.write(pdf_bytes.read())
